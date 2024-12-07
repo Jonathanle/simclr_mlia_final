@@ -3,6 +3,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 
+import numpy as np
+import pdb
+
+from sklearn.model_selection import train_test_split
+
+device = "cuda:0"
+
+
 class BrainDataset(Dataset):
     def __init__(self, images, labels, transform=None):
         self.images = images
@@ -28,7 +36,7 @@ class BrainCNN(nn.Module):
         self.conv3 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
         
         # Calculate the size after convolutions
-        self.fc_input_size = 64 * 15 * 8  # After 3 max pools: 120/8=15, 70/8≈8
+        self.fc_input_size = 64 * 12 * 9 
         
         self.fc1 = nn.Linear(self.fc_input_size, 512)
         self.fc2 = nn.Linear(512, 3)  # 3 classes: healthy, MCI, disease
@@ -36,6 +44,9 @@ class BrainCNN(nn.Module):
         self.dropout = nn.Dropout(0.5)
     
     def forward(self, x):
+
+
+
         # Convolutional layers
         x = F.relu(self.conv1(x))
         x = F.max_pool2d(x, 2)
@@ -69,6 +80,7 @@ def train_model(model, train_loader, optimizer, criterion, device):
 
 # Evaluation function
 def evaluate_model(model, test_loader, device):
+
     model.eval()
     correct = 0
     total = 0
@@ -79,6 +91,8 @@ def evaluate_model(model, test_loader, device):
             _, predicted = torch.max(outputs.data, 1)
             total += target.size(0)
             correct += (predicted == target).sum().item()
+
+    pdb.set_trace()
     return 100 * correct / total
 
 # Example usage
@@ -93,10 +107,26 @@ def main():
     model = BrainCNN().to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    
-    # Data loading would go here
-    # train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    # test_loader = DataLoader(test_dataset, batch_size=batch_size)
+
+    X_train =  np.load('./data/brain_train_image_final.npy')[:, 1:2, :, :] # I added 1:2 becaause I specificallly want to mainain the channel dimension instead of getting rid of it 
+    # conv format (1, channel, height, width)
+    y_train = np.load('./data/brain_train_label.npy')
+
+    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, train_size = 0.9, random_state=42)
+
+    train_dataset = BrainDataset(X_train, y_train)
+    test_dataset = BrainDataset(X_val, y_val)
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size)
+
+    # TODO: With all the factors, can I parse out how I am getting really good performance on one modification vs another?
+    # Here the skill is in finding how the hyperparameters optimize
+
+    for epoch in range(num_epochs):
+        train_model(model, train_loader, optimizer, criterion, device = "cuda:0")
+    final_result = evaluate_model(model, test_loader=test_loader, device ="cuda:0")
+    pdb.set_trace()
 
 if __name__ == '__main__':
     main()
