@@ -1,3 +1,18 @@
+"""
+importance of testing
+
+allow testing multiple times -
+sentinels against regressions 
+good for documentation for recording what you have checked 
+        - expertise / decision making - domain specific requirements
+        object building - infrastructure, data preprocessing. -- evaluating - computer), 
+        - insight generator think about math and rep building.
+        - black box analysis
+(other pdb methods are forgotten and are not repeatable )
+
+
+NOTE: use pytorch dtype to explicitly specify your numpy array dtypes.
+"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -21,9 +36,11 @@ class BrainDataset(Dataset):
         return len(self.images)
     
     def __getitem__(self, idx):
-        image = self.images[idx]
-        label = self.labels[idx]
+        image = torch.Tensor(self.images[idx])
+        label = torch.tensor(self.labels[idx], dtype = torch.long) # How does tensor relate to Tensor? why does dtype long not affect the computatino? labels NEED TO BE INTS for CE loss interface
         if self.transform:
+            # Transform is specific to 
+
             image = self.transform(image)
         return image, label
 
@@ -44,8 +61,6 @@ class BrainCNN(nn.Module):
         self.dropout = nn.Dropout(0.5)
     
     def forward(self, x):
-
-
 
         # Convolutional layers
         x = F.relu(self.conv1(x))
@@ -92,15 +107,23 @@ def evaluate_model(model, test_loader, device):
             total += target.size(0)
             correct += (predicted == target).sum().item()
 
-    pdb.set_trace()
     return 100 * correct / total
+
+
+
+def load_dataset(type_set = 'train'):
+    X =  np.load(f'./data/brain_{type_set}_image_final.npy')[:, 1:2, :, :] # I added 1:2 becaause I specificallly want to mainain the channel dimension instead of getting rid of i
+    # conv format (1, channel, height, width)
+    y = np.load(f'./data/brain_{type_set}_label.npy')
+    return X, y
+
 
 # Example usage
 def main():
     # Hyperparameters
     batch_size = 32
     learning_rate = 0.001
-    num_epochs = 50
+    num_epochs = 50 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     # Initialize model
@@ -108,9 +131,8 @@ def main():
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-    X_train =  np.load('./data/brain_train_image_final.npy')[:, 1:2, :, :] # I added 1:2 becaause I specificallly want to mainain the channel dimension instead of getting rid of it 
-    # conv format (1, channel, height, width)
-    y_train = np.load('./data/brain_train_label.npy')
+    X_train, y_train = load_dataset(type_set='train')
+    X_test, y_test = load_dataset(type_set='test')
 
     X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, train_size = 0.9, random_state=42)
 
@@ -118,7 +140,9 @@ def main():
     test_dataset = BrainDataset(X_val, y_val)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size) # in these systems it is good practice to document and be confidentn
+    test_final_dataset = BrainDataset(X_test, y_test)
+    test_final_loader = DataLoader(test_final_dataset, batch_size=batch_size)
 
     # TODO: With all the factors, can I parse out how I am getting really good performance on one modification vs another?
     # Here the skill is in finding how the hyperparameters optimize
@@ -126,7 +150,11 @@ def main():
     for epoch in range(num_epochs):
         train_model(model, train_loader, optimizer, criterion, device = "cuda:0")
     final_result = evaluate_model(model, test_loader=test_loader, device ="cuda:0")
-    pdb.set_trace()
 
+
+    print(f"Final Accuracy Validation Result: {final_result}")
+    final_result2 = evaluate_model(model, test_loader= test_final_loader, device ="cuda:0")    
+
+    print(f"Final Accuracy Validation Result: {final_result2}")
 if __name__ == '__main__':
     main()
