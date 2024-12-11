@@ -12,5 +12,5 @@ Tseganesh Beyene Kebede ykq8wj@virginia.edu
 
 # Running baseline
 
-1. create a data directory containing all the original brain dataset files
+1. create a data directory ```./data/``` containing all the original brain dataset files
 2. run ```python baseline.py```
